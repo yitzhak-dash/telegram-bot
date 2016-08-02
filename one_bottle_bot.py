@@ -1,4 +1,4 @@
-from telegram.ext import Updater
+from telegram.ext import Updater, JobQueue
 
 token = '218769106:AAExu45VK1hxju5yKAt0YutT5exHD-WaEWk'
 
@@ -6,31 +6,34 @@ updater = Updater(token=token)
 dispatcher = updater.dispatcher
 
 budget = 0.0
+timers = dict()
 
 
 def help(bot, update):
-    bot.sendMessage(chat_id=update.message.chat_id, text="I'm your bottle, you can talk to me.")
+    chat_id = update.message.chat_id
+    bot.sendMessage(chat_id=chat_id, text="I'm your bottle, you can talk to me.")
 
 
-def add_incoming(bot, update, args):
-    num = float(args[0])
-    global budget
-    budget += num
-    bot.sendMessage(chat_id=update.message.chat_id, text=("Your incoming %d were added." % num))
-    bot.sendMessage(chat_id=update.message.chat_id, text=("The budget is: %d." % budget))
+def say_cool(bot, update, args, job_queue):
+    chat_id = update.message.chat_id
 
+    def alarm(bot, job):
+        """Inner function to send the alarm message"""
+        bot.sendMessage(chat_id, text='Cool!')
 
-def add_expenses(bot, update, args):
-    num = float(args[0])
-    global budget
-    budget -= num
-    bot.sendMessage(chat_id=update.message.chat_id, text=("Your expenses %d were added." % num))
-    bot.sendMessage(chat_id=update.message.chat_id, text=("The budget is: %d." % budget))
+    due = 1
+
+    # Add job to queue
+    job = JobQueue(alarm, due, repeat=True)
+    timers[chat_id] = job
+    job_queue.put(job)
+
+    bot.sendMessage(chat_id=chat_id, text=("You are coo, man."))
 
 
 def echo(bot, update):
     sender_name = update.message.from_user.first_name
-    message = 'Good morning, %s' % sender_name
+    message = 'Hello, %s. You are very cool.' % sender_name
     # bot.sendMessage(chat_id=update.message.chat_id, text="%s says: %s" % (sender_name, update.message.text))
     bot.sendMessage(chat_id=update.message.chat_id, text=message)
 
@@ -42,8 +45,7 @@ def unknown(bot, update):
 def main():
     dispatcher.addUnknownTelegramCommandHandler(unknown)
     dispatcher.addTelegramCommandHandler('help', help)
-    dispatcher.addTelegramCommandHandler('add_incoming', add_incoming)
-    dispatcher.addTelegramCommandHandler('add_expenses', add_expenses)
+    dispatcher.addTelegramCommandHandler('say_cool', say_cool)
     dispatcher.addTelegramMessageHandler(echo)
 
     # Start the Bot
